@@ -56,7 +56,7 @@ class Line(object):
 
     def __repr__(self):
         if self.txt is not None:
-            return 'Line(%s)' % self.txt
+            return self.txt
         else:
             return 'Line(ERROR)'
 
@@ -66,9 +66,17 @@ def process(filename):
     parse_errors = 0
     lines = []
     count = 0
+    pos = codecs.open("polarity.pos", 'w+', 'utf-8')
+    neg = codecs.open("polarity.neg", 'w+', 'utf-8')
     with codecs.open(filename, 'rU', 'utf-8', 'ignore') as f:
         for line in f:
             parsed = Line(line.rstrip('\n'), count)
+            if parsed.label == 0:
+                neg.write(parsed.txt)
+                neg.write("\n")
+            if parsed.label == 4:
+                pos.write(parsed.txt)
+                pos.write("\n")
             if parsed.error:
                 parse_errors += 1
             else:
@@ -77,6 +85,8 @@ def process(filename):
     print('%d / %d lines with unicode errors' % (unicode_errors, count))
     print('%d / %d lines with parse errors' % (parse_errors, count))
 
+    pos.close()
+    neg.close()
     return lines
 
 
@@ -199,8 +209,9 @@ def clean_str_sst(string):
     return string.strip().lower()
 
 if __name__=="__main__":    
-    w2v_file = sys.argv[1]
-
+    w2v_file = "./data/w2v/w2v.bin"
+    tweet_file = "./data/tweets/training.1600000.processed.noemoticon.csv"
+    lines = process(tweet_file)
     data_folder = ["polarity.pos","polarity.neg"]
     print "loading data...",        
     revs, vocab = build_data_cv(data_folder, cv=10, clean_string=True)

@@ -17,7 +17,10 @@ import re
 import warnings
 import sys
 import time
-warnings.filterwarnings("ignore")   
+warnings.filterwarnings("ignore")
+import lasagne
+import os
+import pickle
 
 #different non-linearities
 def ReLU(x):
@@ -180,8 +183,17 @@ def train_conv_net(datasets,
         if val_perf >= best_val_perf:
             best_val_perf = val_perf
             test_loss = test_model_all(test_set_x,test_set_y)        
-            test_perf = 1- test_loss         
+            test_perf = 1- test_loss
+            write_model_data(classifier, './model/best_cnn_model')
     return test_perf
+
+def write_model_data(model, filename):
+    """Pickels the parameters within a Lasagne model."""
+    data = lasagne.layers.get_all_param_values(model)
+    filename = os.path.join('./', filename)
+    filename = '%s.%s' % (filename, 'params')
+    with open(filename, 'w+') as f:
+        pickle.dump(data, f)
 
 def shared_dataset(data_xy, borrow=True):
         """ Function that loads the dataset into shared variables
