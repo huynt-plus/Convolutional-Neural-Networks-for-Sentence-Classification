@@ -1,0 +1,17 @@
+*.pyc
+*.aux
+*.log
+*.out
+*.bbl
+*.blg
+*~
+
+.idea/
+
+# result
+lstm_result/
+
+# data
+data/processed_tweets/
+data/w2v/
+

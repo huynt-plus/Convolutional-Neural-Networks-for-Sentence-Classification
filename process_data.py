@@ -3,6 +3,82 @@ import cPickle
 from collections import defaultdict
 import sys, re
 import pandas as pd
+import codecs
+
+class Line(object):
+    def __init__(self, raw, line_no):
+        parts = raw.split(',')
+        self.line_no = line_no
+        self.tid = None
+        self.txt = None
+        self.label = None
+        self.error = False
+        if len(parts) != 6:
+            bad_parts = parts[5:]
+            new_str = ', '.join(bad_parts)
+            parts = parts[:5] + [new_str]
+        if len(parts) != 6:
+            print('parsing: bad line @ %d (parts len = %d): %s' % (self.line_no, len(parts), raw))
+            # print(parts)
+            self.error = True
+        else:
+            self.tid = parts[1].strip('"')
+            self.txt = parts[5].strip('"')
+            tweet = self.txt
+            tweet = tweet.lower()
+            # Convert https?://* to URL
+            tweet = re.sub('((www\.[\s]+)|(https?://[^\s]+))', 'URL', tweet)
+            # Convert @username to AT_USER
+            tweet = re.sub('@[^\s]+', 'AT_USER', tweet)
+            # Remove additional white spaces
+            tweet = re.sub('[\s]+', ' ', tweet)
+            # Replace #word with word
+            tweet = re.sub(r'#([^\s]+)', r'\1', tweet)
+            tweet = re.sub('[!\?.,#]', '', tweet)
+            # trim
+            tweet = tweet.strip()
+            # remove first/last " or 'at string end
+            tweet = tweet.rstrip('\'"')
+            tweet = tweet.lstrip('\'"')
+            tweet = tweet.strip('!')
+            tweet = tweet.strip('.')
+            tweet = tweet.strip(')')
+            tweet = tweet.strip('(')
+            tweet = tweet.strip(':')
+            tweet = tweet.strip('?')
+            tweet = tweet.strip(',')
+            self.txt = tweet.strip('#')
+            try:
+                self.label = int(parts[0].strip('"'))
+            except ValueError:
+                pass
+        self.tokens = None
+
+    def __repr__(self):
+        if self.txt is not None:
+            return 'Line(%s)' % self.txt
+        else:
+            return 'Line(ERROR)'
+
+def process(filename):
+    print('processing %s' % filename)
+    unicode_errors = 0
+    parse_errors = 0
+    lines = []
+    count = 0
+    with codecs.open(filename, 'rU', 'utf-8', 'ignore') as f:
+        for line in f:
+            parsed = Line(line.rstrip('\n'), count)
+            if parsed.error:
+                parse_errors += 1
+            else:
+                lines.append(parsed)
+            count += 1
+    print('%d / %d lines with unicode errors' % (unicode_errors, count))
+    print('%d / %d lines with parse errors' % (parse_errors, count))
+
+    return lines
+
 
 def build_data_cv(data_folder, cv=10, clean_string=True):
     """
@@ -123,8 +199,9 @@ def clean_str_sst(string):
     return string.strip().lower()
 
 if __name__=="__main__":    
-    w2v_file = sys.argv[1]     
-    data_folder = ["rt-polarity.pos","rt-polarity.neg"]    
+    w2v_file = sys.argv[1]
+
+    data_folder = ["polarity.pos","polarity.neg"]
     print "loading data...",        
     revs, vocab = build_data_cv(data_folder, cv=10, clean_string=True)
     max_l = np.max(pd.DataFrame(revs)["num_words"])
@@ -141,6 +218,6 @@ if __name__=="__main__":
     rand_vecs = {}
     add_unknown_words(rand_vecs, vocab)
     W2, _ = get_W(rand_vecs)
-    cPickle.dump([revs, W, W2, word_idx_map, vocab], open("mr.p", "wb"))
+    cPickle.dump([revs, W, W2, word_idx_map, vocab], open("processed-data", "wb"))
     print "dataset created!"
     
