@@ -184,16 +184,16 @@ def train_conv_net(datasets,
             best_val_perf = val_perf
             test_loss = test_model_all(test_set_x,test_set_y)        
             test_perf = 1- test_loss
-            write_model_data(classifier, './model/best_cnn_model')
+            # write_model_data(classifier, 'model/best_cnn_model')
     return test_perf
 
 def write_model_data(model, filename):
     """Pickels the parameters within a Lasagne model."""
-    data = lasagne.layers.get_all_param_values(model)
+    # data = lasagne.layers.get_all_param_values(model)
     filename = os.path.join('./', filename)
     filename = '%s.%s' % (filename, 'params')
     with open(filename, 'w+') as f:
-        pickle.dump(data, f)
+        pickle.dump(model, f)
 
 def shared_dataset(data_xy, borrow=True):
         """ Function that loads the dataset into shared variables
@@ -279,7 +279,7 @@ def get_idx_from_sent(sent, word_idx_map, max_l=51, k=300, filter_h=5):
         x.append(0)
     return x
 
-def make_idx_data_cv(revs, word_idx_map, cv, max_l=51, k=300, filter_h=5):
+def make_idx_data_cv(revs, word_idx_map, max_l=51, k=300, filter_h=5):
     """
     Transforms sentences into a 2-d matrix.
     """
@@ -287,22 +287,20 @@ def make_idx_data_cv(revs, word_idx_map, cv, max_l=51, k=300, filter_h=5):
     for rev in revs:
         sent = get_idx_from_sent(rev["text"], word_idx_map, max_l, k, filter_h)   
         sent.append(rev["y"])
-        if rev["split"]==cv:            
-            test.append(sent)        
-        else:  
-            train.append(sent)   
+        train.append(sent)
     train = np.array(train,dtype="int")
-    test = np.array(test,dtype="int")
-    return [train, test]     
+    return [train, test]
   
    
 if __name__=="__main__":
     print "loading data...",
-    x = cPickle.load(open("processed-data","rb"))
+    data_path = './data/processed_data/'
+    x = cPickle.load(open(data_path + "processed-data","rb"))
+    y = cPickle.load(open(data_path + "processed-test", "rb"))
     revs, W, W2, word_idx_map, vocab = x[0], x[1], x[2], x[3], x[4]
     print "data loaded!"
     mode= sys.argv[1]
-    word_vectors = sys.argv[2]    
+    word_vectors = sys.argv[2]
     if mode=="-nonstatic":
         print "model architecture: CNN-non-static"
         non_static=True
@@ -317,21 +315,24 @@ if __name__=="__main__":
         print "using: word2vec vectors"
         U = W
     results = []
-    r = range(0,10)    
-    for i in r:
-        datasets = make_idx_data_cv(revs, word_idx_map, i, max_l=56,k=300, filter_h=5)
-        perf = train_conv_net(datasets,
-                              U,
-                              lr_decay=0.95,
-                              filter_hs=[3,4,5],
-                              conv_non_linear="relu",
-                              hidden_units=[100,2], 
-                              shuffle_batch=True, 
-                              n_epochs=25, 
-                              sqr_norm_lim=9,
-                              non_static=non_static,
-                              batch_size=50,
-                              dropout_rate=[0.5])
-        print "cv: " + str(i) + ", perf: " + str(perf)
-        results.append(perf)  
+    datasets = make_idx_data_cv(revs, word_idx_map, max_l=56,k=300, filter_h=5)
+
+    revs, W, W2, word_idx_map, vocab = y[0], y[1], y[2], y[3], y[4]
+
+    testsets = make_idx_data_cv(revs, word_idx_map, max_l=56,k=300, filter_h=5)
+    datasets[1] = testsets[0]
+    perf = train_conv_net(datasets,
+                          U,
+                          lr_decay=0.95,
+                          filter_hs=[3,4,5],
+                          conv_non_linear="relu",
+                          hidden_units=[100,2],
+                          shuffle_batch=True,
+                          n_epochs=25,
+                          sqr_norm_lim=9,
+                          non_static=non_static,
+                          batch_size=50,
+                          dropout_rate=[0.5])
+    print "perf: " + str(perf)
+    results.append(perf)
     print str(np.mean(results))

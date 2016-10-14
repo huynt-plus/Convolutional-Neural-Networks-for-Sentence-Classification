@@ -7,7 +7,7 @@ import codecs
 
 class Line(object):
     def __init__(self, raw, line_no):
-        parts = raw.split(',')
+        parts = raw.split('\t')
         self.line_no = line_no
         self.tid = None
         self.txt = None
@@ -60,14 +60,45 @@ class Line(object):
         else:
             return 'Line(ERROR)'
 
+class LineTest(object):
+    def __init__(self, raw, line_no):
+        parts = raw.split('\t')
+        self.line_no = line_no
+        self.tid = None
+        self.txt = None
+        self.label = None
+        self.error = False
+        if len(parts) != 6:
+            bad_parts = parts[5:]
+            new_str = ', '.join(bad_parts)
+            parts = parts[:5] + [new_str]
+        if len(parts) != 6:
+            print('parsing: bad line @ %d (parts len = %d): %s' % (self.line_no, len(parts), raw))
+            # print(parts)
+            self.error = True
+        else:
+            self.tid = parts[1].strip('"')
+            self.txt = parts[5].strip('"')
+            try:
+                self.label = int(parts[0].strip('"'))
+            except ValueError:
+                pass
+        self.tokens = None
+
+    def __repr__(self):
+        if self.txt is not None:
+            return self.txt
+        else:
+            return 'Line(ERROR)'
+
 def process(filename):
     print('processing %s' % filename)
     unicode_errors = 0
     parse_errors = 0
     lines = []
     count = 0
-    pos = codecs.open("./data/processed_data/polarity.pos", 'w+', 'utf-8')
-    neg = codecs.open("./data/processed_data/polarity.neg", 'w+', 'utf-8')
+    pos = codecs.open("./data/processed_data/test.pos", 'w+', 'utf-8')
+    neg = codecs.open("./data/processed_data/test.neg", 'w+', 'utf-8')
     with codecs.open(filename, 'rU', 'utf-8', 'ignore') as f:
         for line in f:
             parsed = Line(line.rstrip('\n'), count)
@@ -89,6 +120,34 @@ def process(filename):
     neg.close()
     return lines
 
+def processTest(filename):
+    print('processing %s' % filename)
+    unicode_errors = 0
+    parse_errors = 0
+    lines = []
+    count = 0
+    pos = codecs.open("test.pos", 'w+', 'utf-8')
+    neg = codecs.open("test.neg", 'w+', 'utf-8')
+    with codecs.open(filename, 'rU', 'utf-8', 'ignore') as f:
+        for line in f:
+            parsed = LineTest(line.rstrip('\n'), count)
+            if parsed.label == 0:
+                neg.write(parsed.txt)
+                neg.write("\n")
+            if parsed.label == 4:
+                pos.write(parsed.txt)
+                pos.write("\n")
+            if parsed.error:
+                parse_errors += 1
+            else:
+                lines.append(parsed)
+            count += 1
+    print('%d / %d lines with unicode errors' % (unicode_errors, count))
+    print('%d / %d lines with parse errors' % (parse_errors, count))
+
+    pos.close()
+    neg.close()
+    return lines
 def build_data_cv(data_folder, cv=10, clean_string=True):
     """
     Loads data and split into 10 folds.
@@ -209,10 +268,9 @@ def clean_str_sst(string):
 
 if __name__=="__main__":    
     w2v_file = "./data/w2v/w2v.bin"
-    tweet_file = "./data/tweets/training.1600000.processed.noemoticon.csv"
-    lines = process(tweet_file)
-    data_folder = ["polarity.pos","polarity.neg"]
-    test_folder = ["testData"]
+    test_file = "./data/tweets/testdata.manual.2009.06.14.csv"
+    lines = process(test_file)
+    data_folder = ["test.pos","test.neg"]
     print "loading data...",        
     revs, vocab = build_data_cv(data_folder, cv=10, clean_string=True)
     max_l = np.max(pd.DataFrame(revs)["num_words"])
@@ -229,6 +287,6 @@ if __name__=="__main__":
     rand_vecs = {}
     add_unknown_words(rand_vecs, vocab)
     W2, _ = get_W(rand_vecs)
-    cPickle.dump([revs, W, W2, word_idx_map, vocab], open("./data/processed_data/processed-data", "wb"))
+    cPickle.dump([revs, W, W2, word_idx_map, vocab], open("./data/processed_data/processed-test", "wb"))
     print "dataset created!"
     
